@@ -28,12 +28,12 @@
     },
     "scripts": {
         "test": "jest",
-        "build": "tsc",
+        "pre": "tsc",
         "clean": "rm -rf lib dist",
         "format": "prettier --write \"**/*.ts\"",
         "lint": "eslint src/**/*.ts",
-        "package": "ncc build --source-map --license licenses.txt",
-        "all": "npm run format && npm run clean && npm run build && npm run lint && npm run package && npm test",
+        "build": "ncc build --source-map --license licenses.txt",
+        "all": "npm run format && npm run clean && npm run pre && npm run lint && npm run build && npm test",
         "semantic-release": "semantic-release"
     },
     "repository": {
