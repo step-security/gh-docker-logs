@@ -13,7 +13,7 @@
         "@types/jest": "^29.1.2",
         "@types/node": "^20.11.7",
         "@typescript-eslint/eslint-plugin": "^6.19.1",
-        "@typescript-eslint/parser": "^6.19.1",
+        "@typescript-eslint/parser": "^8.12.1",
         "@vercel/ncc": "^0.38.1",
         "axios": "^1.7.4",
         "chai": "^4.3.6",
