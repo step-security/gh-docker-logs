@@ -1,184 +1,6 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 7223:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getContainers = getContainers;
-exports.filterContainers = filterContainers;
-exports.getLogsFromContainer = getLogsFromContainer;
-const child_process_1 = __nccwpck_require__(2081);
-const fs_1 = __importDefault(__nccwpck_require__(7147));
-function run(cmd, options = {}) {
-    let stdio;
-    if (options.passthrough) {
-        stdio = 'inherit';
-    }
-    else if (options.out) {
-        stdio = ['pipe', options.out, options.out];
-    }
-    else {
-        stdio = 'pipe';
-    }
-    return (0, child_process_1.execSync)(cmd, {
-        shell: options.shell,
-        encoding: 'utf-8',
-        env: process.env,
-        stdio,
-    });
-}
-function getContainers(options = {}) {
-    const ps = run('docker ps -a --format "table {{.ID}},{{.Image}},{{.Names}},{{.Status}}" --no-trunc', { shell: options.shell });
-    // `slice(1)` to remove the 'CONTAINER_ID,IMAGE,NAMES' header.
-    const psLines = ps.split(/\r?\n/).slice(1);
-    return (psLines
-        // Last line is empty - skip it.
-        .filter((line) => !!line)
-        .map((line) => {
-        const [id, image, name, status] = line.split(',');
-        return { id, image, name, status };
-    }));
-}
-function filterContainers(containers, imagesFilter) {
-    return containers.filter((container) => !imagesFilter ||
-        imagesFilter.includes(container.image) ||
-        imagesFilter.some((filter) => container.image.startsWith(`${filter}:`)));
-}
-function getLogsFromContainer(containerId, options) {
-    const { tail, filename } = options;
-    const logsOptions = tail ? `--tail ${tail} ` : '';
-    let out;
-    if (filename) {
-        out = fs_1.default.openSync(filename, 'w');
-    }
-    run(`docker logs ${logsOptions} ${containerId}`, {
-        passthrough: !options.filename,
-        out,
-    });
-    if (out !== undefined) {
-        fs_1.default.closeSync(out);
-    }
-}
-
-
-/***/ }),
-
-/***/ 3109:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const core = __importStar(__nccwpck_require__(2186));
-const axios_1 = __importStar(__nccwpck_require__(8757));
-const fs_1 = __importDefault(__nccwpck_require__(7147));
-const path_1 = __importDefault(__nccwpck_require__(1017));
-const lib_1 = __nccwpck_require__(7223);
-function validateSubscription() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const API_URL = `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/subscription`;
-        try {
-            yield axios_1.default.get(API_URL, { timeout: 3000 });
-        }
-        catch (error) {
-            if ((0, axios_1.isAxiosError)(error) && error.response) {
-                core.error('Subscription is not valid. Reach out to support@stepsecurity.io');
-                process.exit(1);
-            }
-            else {
-                core.info('Timeout or API not reachable. Continuing to next step.');
-            }
-        }
-    });
-}
-// Main function to run the script
-function main() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield validateSubscription();
-        const dest = core.getInput('dest') || undefined;
-        const images = core.getInput('images') || undefined;
-        const tail = core.getInput('tail');
-        const shell = core.getInput('shell');
-        const imagesFilter = typeof images === 'string' ? images.split(',') : undefined;
-        if (dest) {
-            fs_1.default.mkdirSync(dest, { recursive: true });
-        }
-        const containers = (0, lib_1.getContainers)({ shell });
-        console.log(`Found ${containers.length} containers...`);
-        const filteredContainers = (0, lib_1.filterContainers)(containers, imagesFilter);
-        if (imagesFilter) {
-            console.log(`Found ${filteredContainers.length} matching containers...`);
-        }
-        console.log('\n');
-        for (const container of filteredContainers) {
-            if (!dest) {
-                console.log(`::group::${container.image} (${container.name})`);
-                console.log('**********************************************************************');
-                console.log(`* Name  : ${container.name}`);
-                console.log(`* Image : ${container.image}`);
-                console.log(`* Status: ${container.status}`);
-                console.log('**********************************************************************');
-                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail });
-                console.log(`::endgroup::`);
-            }
-            else {
-                const logFile = `${container.name.replace(/[/:]/g, '-')}.log`;
-                const filename = path_1.default.resolve(dest, logFile);
-                console.log(`Writing ${filename}`);
-                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail, filename });
-            }
-        }
-    });
-}
-// Run the main function
-main().catch((error) => {
-    core.setFailed(`Script failed: ${error.message}`);
-});
-
-
-/***/ }),
-
 /***/ 7351:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -13851,6 +13673,14 @@ const { isUint8Array, isArrayBuffer } = __nccwpck_require__(9830)
 const { File: UndiciFile } = __nccwpck_require__(8511)
 const { parseMIMEType, serializeAMimeType } = __nccwpck_require__(685)
 
+let random
+try {
+  const crypto = __nccwpck_require__(6005)
+  random = (max) => crypto.randomInt(0, max)
+} catch {
+  random = (max) => Math.floor(Math.random(max))
+}
+
 let ReadableStream = globalThis.ReadableStream
 
 /** @type {globalThis['File']} */
@@ -13936,7 +13766,7 @@ function extractBody (object, keepalive = false) {
     // Set source to a copy of the bytes held by object.
     source = new Uint8Array(object.buffer.slice(object.byteOffset, object.byteOffset + object.byteLength))
   } else if (util.isFormDataLike(object)) {
-    const boundary = `----formdata-undici-0${`${Math.floor(Math.random() * 1e11)}`.padStart(11, '0')}`
+    const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, '0')}`
     const prefix = `--${boundary}\r\nContent-Disposition: form-data`
 
     /*! formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
@@ -28597,6 +28427,185 @@ exports["default"] = _default;
 
 /***/ }),
 
+/***/ 9730:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getLogsFromContainer = exports.filterContainers = exports.getContainers = void 0;
+const child_process_1 = __nccwpck_require__(2081);
+const fs_1 = __importDefault(__nccwpck_require__(7147));
+function run(cmd, options = {}) {
+    let stdio;
+    if (options.passthrough) {
+        stdio = 'inherit';
+    }
+    else if (options.out) {
+        stdio = ['pipe', options.out, options.out];
+    }
+    else {
+        stdio = 'pipe';
+    }
+    return (0, child_process_1.execSync)(cmd, {
+        shell: options.shell,
+        encoding: 'utf-8',
+        env: process.env,
+        stdio,
+    });
+}
+function getContainers(options = {}) {
+    const ps = run('docker ps -a --format "table {{.ID}},{{.Image}},{{.Names}},{{.Status}}" --no-trunc', { shell: options.shell });
+    // `slice(1)` to remove the 'CONTAINER_ID,IMAGE,NAMES' header.
+    const psLines = ps.split(/\r?\n/).slice(1);
+    return (psLines
+        // Last line is empty - skip it.
+        .filter((line) => !!line)
+        .map((line) => {
+        const [id, image, name, status] = line.split(',');
+        return { id, image, name, status };
+    }));
+}
+exports.getContainers = getContainers;
+function filterContainers(containers, imagesFilter) {
+    return containers.filter((container) => !imagesFilter ||
+        imagesFilter.includes(container.image) ||
+        imagesFilter.some((filter) => container.image.startsWith(`${filter}:`)));
+}
+exports.filterContainers = filterContainers;
+function getLogsFromContainer(containerId, options) {
+    const { tail, filename } = options;
+    const logsOptions = tail ? `--tail ${tail} ` : '';
+    let out;
+    if (filename) {
+        out = fs_1.default.openSync(filename, 'w');
+    }
+    run(`docker logs ${logsOptions} ${containerId}`, {
+        passthrough: !options.filename,
+        out,
+    });
+    if (out !== undefined) {
+        fs_1.default.closeSync(out);
+    }
+}
+exports.getLogsFromContainer = getLogsFromContainer;
+
+
+/***/ }),
+
+/***/ 399:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(2186));
+const axios_1 = __importStar(__nccwpck_require__(8757));
+const fs_1 = __importDefault(__nccwpck_require__(7147));
+const path_1 = __importDefault(__nccwpck_require__(1017));
+const lib_1 = __nccwpck_require__(9730);
+function validateSubscription() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const API_URL = `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/subscription`;
+        try {
+            yield axios_1.default.get(API_URL, { timeout: 3000 });
+        }
+        catch (error) {
+            if ((0, axios_1.isAxiosError)(error) && error.response) {
+                core.error('Subscription is not valid. Reach out to support@stepsecurity.io');
+                process.exit(1);
+            }
+            else {
+                core.info('Timeout or API not reachable. Continuing to next step.');
+            }
+        }
+    });
+}
+// Main function to run the script
+function main() {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield validateSubscription();
+        const dest = core.getInput('dest') || undefined;
+        const images = core.getInput('images') || undefined;
+        const tail = core.getInput('tail');
+        const shell = core.getInput('shell');
+        const imagesFilter = typeof images === 'string' ? images.split(',') : undefined;
+        if (dest) {
+            fs_1.default.mkdirSync(dest, { recursive: true });
+        }
+        const containers = (0, lib_1.getContainers)({ shell });
+        console.log(`Found ${containers.length} containers...`);
+        const filteredContainers = (0, lib_1.filterContainers)(containers, imagesFilter);
+        if (imagesFilter) {
+            console.log(`Found ${filteredContainers.length} matching containers...`);
+        }
+        console.log('\n');
+        for (const container of filteredContainers) {
+            if (!dest) {
+                console.log(`::group::${container.image} (${container.name})`);
+                console.log('**********************************************************************');
+                console.log(`* Name  : ${container.name}`);
+                console.log(`* Image : ${container.image}`);
+                console.log(`* Status: ${container.status}`);
+                console.log('**********************************************************************');
+                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail });
+                console.log(`::endgroup::`);
+            }
+            else {
+                const logFile = `${container.name.replace(/[/:]/g, '-')}.log`;
+                const filename = path_1.default.resolve(dest, logFile);
+                console.log(`Writing ${filename}`);
+                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail, filename });
+            }
+        }
+    });
+}
+// Run the main function
+main().catch((error) => {
+    core.setFailed(`Script failed: ${error.message}`);
+});
+
+
+/***/ }),
+
 /***/ 9491:
 /***/ ((module) => {
 
@@ -28698,6 +28707,14 @@ module.exports = require("https");
 
 "use strict";
 module.exports = require("net");
+
+/***/ }),
+
+/***/ 6005:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:crypto");
 
 /***/ }),
 
@@ -35257,7 +35274,7 @@ module.exports = JSON.parse('{"application/1d-interleaved-parityfec":{"source":"
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(3109);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(399);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()
