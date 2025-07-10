@@ -4,7 +4,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/step-security/gh-docker-logs)](https://github.com/step-security/gh-docker-logs/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A powerful GitHub Action that automatically collects logs from all running Docker containers in your workflow. Perfect for debugging failed CI/CD pipelines by capturing container output for analysis.
+Automatically collect and manage logs from all running Docker containers in your GitHub Actions workflow.
 
 ## Features
 
@@ -48,10 +48,6 @@ Add this action to your workflow to automatically collect Docker logs on failure
 ### Basic Usage - Collect All Logs on Failure
 
 ```yaml
-steps:
-  - name: Run tests
-    run: npm test
-  
   - name: Collect Docker logs on failure
     if: failure()
     uses: step-security/gh-docker-logs@v2
