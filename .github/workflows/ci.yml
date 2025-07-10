@@ -26,11 +26,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build Project
-        run: |
-          npm install
-          npm run all
-          docker pull ubuntu:22.10
+      - name: Install dependencies
+        run:  npm install
+
+      - name: Pull a container for unit tests
+        run: docker pull ubuntu:22.10
+
+      - name: Build and test the project
+        run:  npm run all
     
       - name: Run a docker container
         run: docker run --name=test-container ubuntu:22.10 /bin/sh -c '>&2 echo error1 && echo test message && >&2 echo error2'
