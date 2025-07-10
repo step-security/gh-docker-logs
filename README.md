@@ -1,73 +1,125 @@
-# Collect Docker Logs
+# Docker Container Logs Collection Action
 
-[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
+[![GitHub Issues](https://img.shields.io/github/issues/step-security/gh-docker-logs)](https://github.com/step-security/gh-docker-logs/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/step-security/gh-docker-logs)](https://github.com/step-security/gh-docker-logs/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is a GitHub Action which will collect logs from all running docker
-containers. Logs can either be dumped to stdout, or can be written to a
-folder (where you can tar them up and
-[upload them as an artifact](https://github.com/actions/upload-artifact)).
+A powerful GitHub Action that automatically collects logs from all running Docker containers in your workflow. Perfect for debugging failed CI/CD pipelines by capturing container output for analysis.
 
-## Inputs
+## Features
 
-- `dest` - Destination folder to write to. If not provided, logs will be
-  written to stdout. If provided, the folder will be created if it doesn't
-  exist, and files will be written based on container names (e.g. 'redis.log').
+- **Automatic Log Collection**: Gather logs from all running Docker containers
+- **Flexible Output**: Stream to stdout or save to files for artifact upload
+- **Selective Filtering**: Target specific containers by image name
+- **Configurable Limits**: Control log volume with line count limits
+- **Cross-Shell Support**: Works with different shell environments
+- **Easy Integration**: Simple YAML configuration for any workflow
 
-- `images` - A comma delimited list of image names. If provided, only output
-  from containers with these images will be shown. Containers will match if
-  the image matches exactly (e.g. "mongo:3.4.22") or if the image name matches
-  without a tag (e.g. "mongo" will match "mongo:3.4.22").
+## Quick Start
 
-- `tail` - Max number of lines to show from each container.  Defaults to "all".
-
-- `shell` - Shell to execute commands.  Defaults to "/bin/sh".
-
-## Usage
-
-## Dump all logs on a failure
+Add this action to your workflow to automatically collect Docker logs on failure:
 
 ```yaml
-- name: Dump docker logs on failure
+- name: Collect Docker logs on failure
   if: failure()
   uses: step-security/gh-docker-logs@v2
 ```
 
-## Dump redis and mongodb logs
+## Configuration
+
+### Input Parameters
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `dest` | Destination folder to write log files. If not provided, logs are written to stdout. Files are named by container (e.g., `redis.log`) | stdout | No |
+| `images` | Comma-delimited list of image names to filter containers. Supports exact matches (`mongo:3.4.22`) or name-only matches (`mongo`) | all containers | No |
+| `tail` | Maximum number of lines to collect from each container | `all` | No |
+| `shell` | Shell to execute commands | `/bin/sh` | No |
+
+### Output Behavior
+
+- **stdout mode**: Logs are printed directly to the workflow output
+- **file mode**: Individual log files are created for each container in the specified directory
+- **filtering**: Only containers matching the specified images are processed
+- **naming**: Log files use container names with `.log` extension
+
+## Usage Examples
+
+### Basic Usage - Collect All Logs on Failure
 
 ```yaml
-- name: Dump redis logs
+steps:
+  - name: Run tests
+    run: npm test
+  
+  - name: Collect Docker logs on failure
+    if: failure()
+    uses: step-security/gh-docker-logs@v2
+```
+
+### Selective Log Collection
+
+```yaml
+- name: Collect specific service logs
   uses: step-security/gh-docker-logs@v2
   with:
-    images: 'redis,mongo'
-    # Only show last 100 lines of each
+    images: 'redis,mongo,postgres'
     tail: '100'
 ```
 
-## Upload tarball as artifact
+### Save Logs as Artifacts
 
 ```yaml
-- name: Collect docker logs on failure
+- name: Collect Docker logs to files
   if: failure()
   uses: step-security/gh-docker-logs@v2
   with:
-    dest: './logs'
-- name: Tar logs
+    dest: './docker-logs'
+
+- name: Archive logs
   if: failure()
-  run: tar cvzf ./logs.tgz ./logs
-- name: Upload logs to GitHub
+  run: tar -czf docker-logs.tar.gz ./docker-logs
+
+- name: Upload logs as artifact
   if: failure()
-  uses: actions/upload-artifact@master
+  uses: actions/upload-artifact@v4
   with:
-    name: logs.tgz
-    path: ./logs.tgz
+    name: docker-logs
+    path: docker-logs.tar.gz
+    retention-days: 7
 ```
 
-## Dump all logs on a failure using different shell
+### Custom Shell Environment
 
 ```yaml
-- name: Dump docker logs on failure using different shell
+- name: Collect logs with custom shell
   if: failure()
   uses: step-security/gh-docker-logs@v2
   with:
-    shell: '/bin/sh'
+    shell: '/bin/bash'
 ```
+
+## Best Practices
+
+- **Use with `if: failure()`** to avoid unnecessary log collection on successful runs
+- **Set appropriate `tail` limits** for large applications to prevent overwhelming output
+- **Filter by specific images** when you only need logs from certain services
+- **Upload logs as artifacts** for persistent access to debugging information
+- **Consider log retention policies** when using artifact uploads
+
+## Common Use Cases
+
+- **CI/CD Debugging**: Capture logs when tests fail
+- **Integration Testing**: Monitor service interactions
+- **Performance Analysis**: Collect logs for performance troubleshooting
+- **Security Auditing**: Preserve container output for security reviews
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- [Report Issues](https://github.com/step-security/gh-docker-logs/issues)
+- [View Documentation](https://github.com/step-security/gh-docker-logs)
+- [Step Security](https://www.stepsecurity.io/)

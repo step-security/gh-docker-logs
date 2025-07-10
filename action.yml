@@ -1,31 +1,45 @@
-name: Collect Docker Logs
-description: Collect logs from all docker containers.
+name: 'Docker Container Logs Collection'
+description: 'Automatically collect and manage logs from all running Docker containers in your GitHub Actions workflow'
+author: step-security
+
 inputs:
   dest:
     description: |
-      Destination folder to write to. If not provided, logs will be written to
-      stdout. If provided, the folder will be created if it doesn't exist, and
-      files will be written based on container names (e.g. 'redis.log').
+      Destination folder path for log files. When specified, creates individual log files 
+      for each container named after the container (e.g., 'redis.log', 'postgres.log').
+      If not provided, all logs are streamed to stdout for immediate viewing.
+      The directory will be created automatically if it doesn't exist.
     required: false
+    
   images:
     description: |
-      A comma delimited list of image names. If provided, only output from
-      containers with these images will be shown. Containers will match if the
-      image matches exactly (e.g. "mongo:3.4.22") or if the image name matches
-      without a tag (e.g. "mongo" will match "mongo:3.4.22").
+      Comma-separated list of Docker image names to filter containers.
+      Supports both exact matches with tags (e.g., "mongo:3.4.22") and 
+      name-only matches without tags (e.g., "mongo" matches "mongo:3.4.22").
+      If not specified, logs from all running containers will be collected.
+      Example: "redis,postgres,nginx"
     required: false
+    
   tail:
-    description: Max number of lines to show from each container. Defaults to "all".
+    description: |
+      Maximum number of log lines to collect from each container.
+      Use "all" to collect complete logs or specify a number (e.g., "100", "500").
+      Helpful for limiting output size in workflows with verbose logging.
     required: false
     default: all
+    
   shell:
-    description: Shell to execute commands. Defaults to "/bin/sh".
+    description: |
+      Shell interpreter to use for executing Docker commands.
+      Defaults to "/bin/sh" for maximum compatibility across different environments.
+      Can be changed to "/bin/bash" or other shells as needed.
     required: false
     default: /bin/sh
 
 runs:
   using: node20
-  main: 'dist/index.js'
+  main: dist/index.js
+  
 branding:
-  icon: align-left
-  color: blue
+  icon: 'file-text'
+  color: 'blue'

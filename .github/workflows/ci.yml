@@ -18,16 +18,21 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Use Node.js
+      - name: Checkout Repo
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Node.js
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-version: '20'
-      - run: npm install
-      # Pull this image so it will already be there for unit tests later.
-      - run: docker pull ubuntu:22.10
-      - run: npm run all
+
+      - name: Build Project
+        run: |
+          npm install
+          npm run all
+          docker pull ubuntu:22.10
+    
       - name: Run a docker container
         run: docker run --name=test-container ubuntu:22.10 /bin/sh -c '>&2 echo error1 && echo test message && >&2 echo error2'
-      - name: test
+      - name: check
         uses: ./
