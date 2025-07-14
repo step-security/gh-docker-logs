@@ -1,76 +1,7 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 7223:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getLogsFromContainer = exports.filterContainers = exports.getContainers = void 0;
-const child_process_1 = __nccwpck_require__(2081);
-const fs_1 = __importDefault(__nccwpck_require__(7147));
-function run(cmd, options = {}) {
-    let stdio;
-    if (options.passthrough) {
-        stdio = 'inherit';
-    }
-    else if (options.out) {
-        stdio = ['pipe', options.out, options.out];
-    }
-    else {
-        stdio = 'pipe';
-    }
-    return (0, child_process_1.execSync)(cmd, {
-        shell: options.shell,
-        encoding: 'utf-8',
-        env: process.env,
-        stdio,
-    });
-}
-function getContainers(options = {}) {
-    const ps = run('docker ps -a --format "table {{.ID}},{{.Image}},{{.Names}},{{.Status}}" --no-trunc', { shell: options.shell });
-    // `slice(1)` to remove the 'CONTAINER_ID,IMAGE,NAMES' header.
-    const psLines = ps.split(/\r?\n/).slice(1);
-    return (psLines
-        // Last line is empty - skip it.
-        .filter((line) => !!line)
-        .map((line) => {
-        const [id, image, name, status] = line.split(',');
-        return { id, image, name, status };
-    }));
-}
-exports.getContainers = getContainers;
-function filterContainers(containers, imagesFilter) {
-    return containers.filter((container) => !imagesFilter ||
-        imagesFilter.includes(container.image) ||
-        imagesFilter.some((filter) => container.image.startsWith(`${filter}:`)));
-}
-exports.filterContainers = filterContainers;
-function getLogsFromContainer(containerId, options) {
-    const { tail, filename } = options;
-    const logsOptions = tail ? `--tail ${tail} ` : '';
-    let out;
-    if (filename) {
-        out = fs_1.default.openSync(filename, 'w');
-    }
-    run(`docker logs ${logsOptions} ${containerId}`, {
-        passthrough: !options.filename,
-        out,
-    });
-    if (out !== undefined) {
-        fs_1.default.closeSync(out);
-    }
-}
-exports.getLogsFromContainer = getLogsFromContainer;
-
-
-/***/ }),
-
-/***/ 3109:
+/***/ 7884:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -112,10 +43,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
-const axios_1 = __importStar(__nccwpck_require__(8757));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const path_1 = __importDefault(__nccwpck_require__(1017));
-const lib_1 = __nccwpck_require__(7223);
+const util_1 = __nccwpck_require__(4024);
+const axios_1 = __importStar(__nccwpck_require__(8757));
 function validateSubscription() {
     return __awaiter(this, void 0, void 0, function* () {
         const API_URL = `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/subscription`;
@@ -133,49 +64,179 @@ function validateSubscription() {
         }
     });
 }
-// Main function to run the script
-function main() {
+function parseInputConfiguration() {
+    const destinationDirectory = core.getInput('dest') || undefined;
+    const targetImages = core.getInput('images') || undefined;
+    const tailFlag = core.getInput('tail');
+    const shellCommand = core.getInput('shell');
+    const imageFilterArray = targetImages
+        ? targetImages
+            .split(',')
+            .map((img) => img.trim())
+            .filter((img) => img.length > 0)
+        : undefined;
+    return { destinationDirectory, imageFilterArray, tailFlag, shellCommand };
+}
+const config = parseInputConfiguration();
+function setupDestinationDirectory(directory) {
+    if (directory) {
+        try {
+            fs_1.default.mkdirSync(directory, { recursive: true });
+        }
+        catch (error) {
+            core.setFailed(`Failed to create destination directory: ${error}`);
+            return;
+        }
+    }
+}
+function processDockerContainers(config) {
     return __awaiter(this, void 0, void 0, function* () {
         yield validateSubscription();
-        const dest = core.getInput('dest') || undefined;
-        const images = core.getInput('images') || undefined;
-        const tail = core.getInput('tail');
-        const shell = core.getInput('shell');
-        const imagesFilter = typeof images === 'string' ? images.split(',') : undefined;
-        if (dest) {
-            fs_1.default.mkdirSync(dest, { recursive: true });
+        const discoveredContainers = (0, util_1.fetchDockerContainers)({ shell: config.shellCommand });
+        if (discoveredContainers.length === 0) {
+            console.log('No Docker containers found.');
+            return;
         }
-        const containers = (0, lib_1.getContainers)({ shell });
-        console.log(`Found ${containers.length} containers...`);
-        const filteredContainers = (0, lib_1.filterContainers)(containers, imagesFilter);
-        if (imagesFilter) {
-            console.log(`Found ${filteredContainers.length} matching containers...`);
+        console.log(`Found ${discoveredContainers.length} containers...`);
+        const matchingContainers = (0, util_1.filterContainersByImage)(discoveredContainers, config.imageFilterArray);
+        if (config.imageFilterArray) {
+            console.log(`Found ${matchingContainers.length} matching containers...`);
+        }
+        if (matchingContainers.length === 0) {
+            console.log('No containers match the specified filters.');
+            return;
         }
         console.log('\n');
-        for (const container of filteredContainers) {
-            if (!dest) {
-                console.log(`::group::${container.image} (${container.name})`);
-                console.log('**********************************************************************');
-                console.log(`* Name  : ${container.name}`);
-                console.log(`* Image : ${container.image}`);
-                console.log(`* Status: ${container.status}`);
-                console.log('**********************************************************************');
-                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail });
-                console.log(`::endgroup::`);
-            }
-            else {
-                const logFile = `${container.name.replace(/[/:]/g, '-')}.log`;
-                const filename = path_1.default.resolve(dest, logFile);
-                console.log(`Writing ${filename}`);
-                (0, lib_1.getLogsFromContainer)(container.id, { tail: !!tail, filename });
-            }
-        }
+        processContainerLogs(matchingContainers, config);
     });
 }
-// Run the main function
-main().catch((error) => {
-    core.setFailed(`Script failed: ${error.message}`);
-});
+function processContainerLogs(containers, config) {
+    for (const dockerContainer of containers) {
+        if (!config.destinationDirectory) {
+            displayContainerInfo(dockerContainer);
+            (0, util_1.extractContainerLogs)(dockerContainer.containerId, { tail: !!config.tailFlag });
+            console.log(`::endgroup::`);
+        }
+        else {
+            writeContainerLogsToFile(dockerContainer, config);
+        }
+    }
+}
+function displayContainerInfo(container) {
+    console.log(`::group::${container.imageName} (${container.containerName})`);
+    console.log('**********************************************************************');
+    console.log(`* Name  : ${container.containerName}`);
+    console.log(`* Image : ${container.imageName}`);
+    console.log(`* Status: ${container.currentStatus}`);
+    console.log('**********************************************************************');
+}
+function writeContainerLogsToFile(container, config) {
+    const logFileName = `${container.containerName.replace(/[/:]/g, '-')}.log`;
+    const fullLogPath = path_1.default.resolve(config.destinationDirectory, logFileName);
+    console.log(`Writing ${fullLogPath}`);
+    (0, util_1.extractContainerLogs)(container.containerId, {
+        tail: !!config.tailFlag,
+        outputFilePath: fullLogPath,
+    });
+}
+setupDestinationDirectory(config.destinationDirectory);
+processDockerContainers(config);
+
+
+/***/ }),
+
+/***/ 4024:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.extractContainerLogs = exports.filterContainersByImage = exports.fetchDockerContainers = void 0;
+const child_process_1 = __nccwpck_require__(2081);
+const fs_1 = __importDefault(__nccwpck_require__(7147));
+function executeCommand(command, executionOptions = {}) {
+    let standardIoOptions;
+    if (executionOptions.passthrough) {
+        standardIoOptions = 'inherit';
+    }
+    else if (executionOptions.outputStream) {
+        standardIoOptions = ['pipe', executionOptions.outputStream, executionOptions.outputStream];
+    }
+    else {
+        standardIoOptions = 'pipe';
+    }
+    return (0, child_process_1.execSync)(command, {
+        shell: executionOptions.shell,
+        encoding: 'utf-8',
+        env: process.env,
+        stdio: standardIoOptions,
+    });
+}
+function fetchDockerContainers(commandOptions = {}) {
+    try {
+        const dockerProcessList = executeCommand('docker ps -a --format "table {{.ID}},{{.Image}},{{.Names}},{{.Status}}" --no-trunc', { shell: commandOptions.shell });
+        const processListLines = dockerProcessList.split(/\r?\n/).slice(1);
+        return processListLines
+            .filter((line) => line.trim() !== '')
+            .map((line) => {
+            const containerData = line.split(',');
+            if (containerData.length < 4) {
+                throw new Error(`Invalid container data format: ${line}`);
+            }
+            const [containerId, imageName, containerName, currentStatus] = containerData;
+            return { containerId, imageName, containerName, currentStatus };
+        });
+    }
+    catch (error) {
+        console.error('Failed to fetch Docker containers:', error);
+        return [];
+    }
+}
+exports.fetchDockerContainers = fetchDockerContainers;
+function filterContainersByImage(dockerContainers, imageFilterList) {
+    if (!imageFilterList || imageFilterList.length === 0) {
+        return dockerContainers;
+    }
+    const normalizedFilters = imageFilterList.map((filter) => filter.trim().toLowerCase());
+    return dockerContainers.filter((container) => {
+        const normalizedImageName = container.imageName.toLowerCase();
+        return normalizedFilters.some((filter) => {
+            return normalizedImageName === filter || normalizedImageName.startsWith(`${filter}:`);
+        });
+    });
+}
+exports.filterContainersByImage = filterContainersByImage;
+function extractContainerLogs(targetContainerId, logOptions) {
+    const { tail, outputFilePath } = logOptions;
+    const dockerLogArguments = tail ? `--tail ${tail} ` : '';
+    let fileDescriptor;
+    try {
+        if (outputFilePath) {
+            fileDescriptor = fs_1.default.openSync(outputFilePath, 'w');
+        }
+        executeCommand(`docker logs ${dockerLogArguments} ${targetContainerId}`, {
+            passthrough: !outputFilePath,
+            outputStream: fileDescriptor,
+        });
+    }
+    catch (error) {
+        console.error(`Failed to extract logs for container ${targetContainerId}:`, error);
+    }
+    finally {
+        if (fileDescriptor !== undefined) {
+            try {
+                fs_1.default.closeSync(fileDescriptor);
+            }
+            catch (closeError) {
+                console.error('Failed to close file descriptor:', closeError);
+            }
+        }
+    }
+}
+exports.extractContainerLogs = extractContainerLogs;
 
 
 /***/ }),
@@ -35296,7 +35357,7 @@ module.exports = JSON.parse('{"application/1d-interleaved-parityfec":{"source":"
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(3109);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(7884);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()
