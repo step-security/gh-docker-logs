@@ -4,7 +4,7 @@
     "description": "Automatically collect and manage logs from all running Docker containers in your GitHub Actions workflow.",
     "main": "lib/run.js",
     "dependencies": {
-        "@actions/core": "^1.10.0"
+        "@actions/core": "^2.0.1"
     },
     "devDependencies": {
         "@types/chai": "^4.3.3",
